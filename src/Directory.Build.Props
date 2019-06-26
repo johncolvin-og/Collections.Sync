@@ -1,0 +1,73 @@
+<Project>
+
+<PropertyGroup>
+    <!--BTS TAKE BEGIN -->
+    <!--<ComputerSpecificConfig>..\..\tools\override\$(computername).props</ComputerSpecificConfig>
+    <SparkRoot>$([System.IO.Path]::GetFullPath($(MSBuildThisFileDirectory)\..\..))</SparkRoot>
+    <SourceRoot>$([System.IO.Path]::GetFullPath($(SparkRoot)\src))</SourceRoot>
+    <Externals>$(SparkRoot)\externals\windows</Externals>
+    <DepotName>$([System.IO.Path]::GetFileName($([System.IO.Path]::GetFullPath($(SparkRoot)))))</DepotName>
+    <ErrorReport>None</ErrorReport>
+    <Prefer32Bit>False</Prefer32Bit>
+    <Deterministic>true</Deterministic>
+    <EnableDefaultContentItems>False</EnableDefaultContentItems>
+    <ShowMissingItemTypes>false</ShowMissingItemTypes>
+    <Configuration Condition="'$(configuration)'==''">Debug</Configuration>-->
+    <!-- MY TAKE BEGIN -->
+    <JGuideRoot>$([System.IO.Path]::GetFullPath($(MSBuildThisFileDirectory)\..))</JGuideRoot>
+    <SourceRoot>$([System.IO.Path]::GetFullPath($(JGuideRoot)\src))</SourceRoot>
+    <Externals>$(JGuideRoot)\externals\windows</Externals>
+    <DepotName>$([System.IO.Path]::GetFileName($([System.IO.Path]::GetFullPath($(JGuideRoot)))))</DepotName>
+    <ErrorReport>None</ErrorReport>
+    <Prefer32Bit>False</Prefer32Bit>
+    <Deterministic>true</Deterministic>
+    <EnableDefaultContentItems>False</EnableDefaultContentItems>
+    <ShowMissingItemTypes>false</ShowMissingItemTypes>
+    <Configuration Condition="'$(configuration)'==''">Debug</Configuration>
+</PropertyGroup>
+
+<PropertyGroup Label="Output">
+    <BaseOutputPath>$(JGuideRoot)\build\$(Configuration)</BaseOutputPath>
+    <OutputPath>$(BaseOutputPath)\bin</OutputPath>
+    <BaseIntermediateOutputPath>$(BaseOutputPath)\obj\$(MSBuildProjectName)</BaseIntermediateOutputPath>
+    <IntermediateOutputPath>$(BaseOutputPath)\obj\$(MSBuildProjectName)</IntermediateOutputPath>
+    <GenDir>$(BaseOutputPath)\gen\$(MSBuildProjectName)</GenDir>
+</PropertyGroup>
+
+<ItemGroup>
+    <AvailableItemName Include="Proto2">
+        <Targets>CompileProto3</Targets>
+    </AvailableItemName>
+    <AvailableItemName Include="Proto3">
+        <Targets>CompileProto3</Targets>
+    </AvailableItemName>
+    <AvailableItemName Include="Proto3Excel">
+        <Targets>CompileProto3Excel</Targets>
+    </AvailableItemName>    
+</ItemGroup>
+
+<PropertyGroup Label="ProtoBuf">
+    <ProtoInclude>$(Externals)\include</ProtoInclude>
+    <protoc>$(Externals)\bin\protoc.exe</protoc>
+    <protogen>$(Externals)\bin\protogen.exe</protogen>
+</PropertyGroup>
+
+<ItemDefinitionGroup>
+    <Proto2>
+    </Proto2>
+    <Proto3>
+        <OutBase>$(IntermediateOutputPath)\gen\%(relativedir)</OutBase>
+        <OutCS>%(OutBase)%(FileName).cs</OutCS>
+        <OutCSClient>%(OutBase)%(FileName).client.pb.cs</OutCSClient>
+        <OutCSServer>%(OutBase)%(FileName).server.pb.cs</OutCSServer>
+        <OutCSImmutable>%(OutBase)%(FileName).immutable.pb.cs</OutCSImmutable>        
+        <CompileOptions></CompileOptions>
+    </Proto3>
+    <Proto3Excel>
+        <OutBase>$(IntermediateOutputPath)\gen\%(relativedir)</OutBase>
+        <OutCSExcel>%(OutBase)%(FileName).excel.pb.cs</OutCSExcel>
+        <CompileOptions></CompileOptions>
+    </Proto3Excel>    
+</ItemDefinitionGroup>
+
+</Project>

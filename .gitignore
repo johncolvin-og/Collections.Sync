@@ -1,0 +1,10 @@
+build/
+.vscode/*
+!.vscode/*.json
+.vs
+obj/
+*.csproj.user
+*.vspx
+*.psess
+msbuild.log
+*.orig
