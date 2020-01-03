@@ -8,6 +8,14 @@ namespace Collections.Sync.Utils {
       public static IDisposable Create(Action action) =>
          new AnonymousDisposable(action);
 
+      public static IDisposable Create(params IDisposable[] disposables) {
+         return Create(impl);
+         void impl() {
+            for (int i = 0; i < disposables.Length; i++)
+               disposables[i]?.Dispose();
+         }
+      }
+
       public static void dispose<T>(ref T item) where T : class, IDisposable {
          if (item != null) {
             item.Dispose();

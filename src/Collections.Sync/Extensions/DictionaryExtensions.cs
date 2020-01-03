@@ -1,11 +1,12 @@
-﻿using System;
+﻿using Collections.Sync.Collections.Impl;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 
 namespace Collections.Sync.Extensions {
-   static class DictionaryExtensions {
+   public static class DictionaryExtensions {
       public static void AddOrUpdate<TKey, TValue>(this IDictionary<TKey, TValue> dictionary, TKey key, Func<TKey, TValue> add_value_factory, Action<TKey, TValue> update_value) {
          if (!dictionary.TryGetValue(key, out TValue value))
             dictionary.Add(key, add_value_factory(key));
@@ -137,31 +138,6 @@ namespace Collections.Sync.Extensions {
             return value;
          }
          return null;
-      }
-
-      class FilteredDictionary<TKey, TValue> : IReadOnlyDictionary<TKey, TValue> {
-         readonly IReadOnlyDictionary<TKey, TValue> _source;
-         readonly Func<KeyValuePair<TKey, TValue>, bool> _predicate;
-         /// Note: once initialized (lazily), <see cref="_count"/> may become invalid if the underlying source changes.
-         int? _count;
-
-         public FilteredDictionary(IReadOnlyDictionary<TKey, TValue> source, Func<KeyValuePair<TKey, TValue>, bool> predicate) {
-            _source = source;
-            _predicate = predicate;
-         }
-
-         public TValue this[TKey key] =>
-            _source.TryGetValue(key, out var value) && _predicate(new KeyValuePair<TKey, TValue>(key, value)) ?
-               value : throw new KeyNotFoundException();
-
-         public IEnumerable<TKey> Keys => this.Select(kv => kv.Key);
-         public IEnumerable<TValue> Values => this.Select(kv => kv.Value);
-         public int Count => _count ?? (_count = this.Count()).Value;
-
-         public bool ContainsKey(TKey key) => _source.TryGetValue(key, out var value) && _predicate(new KeyValuePair<TKey, TValue>(key, value));
-         public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator() => _source.Where(_predicate).GetEnumerator();
-         public bool TryGetValue(TKey key, out TValue value) => _source.TryGetValue(key, out value) && _predicate(new KeyValuePair<TKey, TValue>(key, value));
-         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
       }
    }
 

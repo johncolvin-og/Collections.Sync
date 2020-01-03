@@ -5,7 +5,32 @@ using System.Collections.Generic;
 using System.Threading;
 
 namespace Collections.Sync.Special {
-   public class RefCountMap<TKey> : IDictionary<TKey, int>, IReadOnlyDictionary<TKey, int> { 
+   public interface IRefCountMap<TKey> : IDictionary<TKey, int>, IReadOnlyDictionary<TKey, int> {
+      /// <summary>
+      /// Indicates whether or not an exception should be thrown if a call to <see cref="Increment(TKey, int)"/> would result in a negative reference count for the particular key.
+      /// </summary>
+      bool AllowNegativeReferences { get; }
+      /// <summary>
+      /// Increments the reference count for the specified key; returns a boolean indicating whether a key was added or removed as a result.
+      /// </summary>
+      /// <param name="key">The key who's reference count will be changed.</param>
+      /// <param name="count">The quantity to add to the specified key's reference count (the <paramref name="count"/> param may be negative).</param>
+      /// <returns>A boolean indicating whether or not a key was added or removed.</returns>
+      bool IncrementBy(TKey key, int count);
+   }
+
+   public static class RefCountMap {
+      public static IRefCountMap<TKey> Create<TKey>() =>
+         new RefCountMap<TKey>();
+
+      public static IRefCountMap<TKey> Create<TKey>(IEqualityComparer<TKey> key_comparer) =>
+         new RefCountMap<TKey>(key_comparer);
+
+      public static IRefCountMap<TKey> Create<TKey>(IEqualityComparer<TKey> key_comparer, bool allow_negative_references) =>
+         new RefCountMap<TKey>(key_comparer, allow_negative_references);
+   }
+
+   public class RefCountMap<TKey> : IRefCountMap<TKey> { 
       static readonly Func<KeyRefCount, int> _count_selector = krc => krc.count;
 
       readonly IEqualityComparer<TKey> _key_comparer;
@@ -17,11 +42,15 @@ namespace Collections.Sync.Special {
          : this(EqualityComparer<TKey>.Default) { }
 
       public RefCountMap(IEqualityComparer<TKey> key_comparer)
-         : this(new Dictionary<TKey, KeyRefCount>(key_comparer), key_comparer) { }
+         : this(key_comparer, true) { }
 
-      RefCountMap(Dictionary<TKey, KeyRefCount> dictionary, IEqualityComparer<TKey> key_comparer) {
+      public RefCountMap(IEqualityComparer<TKey> key_comparer, bool allow_negative_references)
+         : this(new Dictionary<TKey, KeyRefCount>(key_comparer), key_comparer, allow_negative_references) { }
+
+      RefCountMap(Dictionary<TKey, KeyRefCount> dictionary, IEqualityComparer<TKey> key_comparer, bool allow_negative_references) {
          _dictionary = dictionary;
          _key_comparer = key_comparer;
+         AllowNegativeReferences = allow_negative_references;
          CollectionHelper.wrap_selector(dictionary.Values, _count_selector, out _ro_values, out _values);
       }
 
@@ -34,6 +63,7 @@ namespace Collections.Sync.Special {
          }
       }
 
+      public bool AllowNegativeReferences { get; }
       public int Count => _dictionary.Count;
       public IReadOnlyCollection<TKey> Keys => _dictionary.Keys;
       public IReadOnlyCollection<int> Values => _ro_values;
@@ -55,7 +85,7 @@ namespace Collections.Sync.Special {
       public void Clear() => _dictionary.Clear();
 
       public RefCountMap<TKey> clone() =>
-         new RefCountMap<TKey>(new Dictionary<TKey, KeyRefCount>(_dictionary, _key_comparer), _key_comparer);
+         new RefCountMap<TKey>(new Dictionary<TKey, KeyRefCount>(_dictionary, _key_comparer), _key_comparer, AllowNegativeReferences);
 
       public bool Contains(KeyValuePair<TKey, int> item) =>
          _dictionary.TryGetValue(item.Key, out var krc) && krc.count == item.Value;
@@ -94,13 +124,24 @@ namespace Collections.Sync.Special {
             yield return new KeyValuePair<TKey, int>(kv.Key, kv.Value.count);
       }
 
-      public void increment(TKey key) =>
-         increment(key, 1);
-
-      public void increment(TKey key, int count) {
-         if (!_dictionary.TryGetValue(key, out KeyRefCount krc))
-            _dictionary.Add(key, krc = new KeyRefCount(key) { count = count });
-         else krc.count += count;
+      public bool IncrementBy(TKey key, int count) {
+         if (count != 0) {
+            if (!_dictionary.TryGetValue(key, out KeyRefCount krc)) {
+               if (AllowNegativeReferences && count < 0)
+                  throw _negative_reference_count_ex();
+               _dictionary[key] = new KeyRefCount(key);
+               return true;
+            } else {
+               if (AllowNegativeReferences && count < -krc.count)
+                  throw _negative_reference_count_ex();
+               krc.count += count;
+               if (krc.count == 0) {
+                  _dictionary.Remove(key);
+                  return true;
+               }
+            }
+         }
+         return false;
       }
 
       public bool Remove(TKey key) => _dictionary.Remove(key);
@@ -122,6 +163,9 @@ namespace Collections.Sync.Special {
       }
       // explicit
       IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+      static InvalidOperationException _negative_reference_count_ex() =>
+               throw new InvalidOperationException("Negative reference counts are not permitted.");
 
       class KeyRefCount {
          public KeyRefCount(TKey key) =>
@@ -234,17 +278,17 @@ namespace Collections.Sync.Special {
    }
  
    static class RefCountMapExtensions {
-      public static bool decrement_removes_key<TKey>(this RefCountMap<TKey> ref_count_map, TKey key) {
-         int count_before = ref_count_map.Count;
-         if (ref_count_map.decrement(key))
-            return ref_count_map.Count < count_before;
-         return false;
-      }
+      public static bool Increment<TKey>(this RefCountMap<TKey> ref_count_map, TKey key) =>
+         ref_count_map.IncrementBy(key, 1);
 
-      public static bool increment_adds_key<TKey>(this RefCountMap<TKey> ref_count_map, TKey key) {
-         int count_before = ref_count_map.Count;
-         ref_count_map.increment(key);
-         return ref_count_map.Count > count_before;
+      public static bool Decrement<TKey>(this RefCountMap<TKey> ref_count_map, TKey key) =>
+         ref_count_map.IncrementBy(key, -1);
+
+      public static bool DecrementBy<TKey>(this RefCountMap<TKey> ref_count_map, TKey key, int count) {
+         if (count < 0)
+            throw ExceptionBuilder.ArgumentOutOfRange.lt_zero(nameof(count));
+         return ref_count_map.IncrementBy(key, -count);
       }
    }
 }
+
