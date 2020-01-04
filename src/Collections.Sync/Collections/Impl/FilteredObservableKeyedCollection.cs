@@ -13,12 +13,12 @@ namespace Collections.Sync.Collections.Impl {
    /// The filtered items are sorted with a key comparer, which also facilitates log(n) lookups when responding to changes in the source collection.
    /// </summary>
    /// <typeparam name="T">The type of elements.</typeparam>
-   /// <typeparam name="TKey">The type of immutable keys that uniquely identify each element.</typeparam>
-   class FilteredObservableKeyedCollection<T, TKey> : IStrongReadOnlyObservableCollection<T>, INotifyPropertyChanged {
+   /// <typeparam name="TState">The type of immutable keys that uniquely identify each element.</typeparam>
+   class FilteredObservableKeyedCollection<T, TState> : IStrongReadOnlyObservableCollection<T>, INotifyPropertyChanged {
       readonly IStrongReadOnlyObservableCollection<T> _source;
       readonly IComparer<T> _item_comparer;
       readonly IEqualityComparer<T> _eq_comparer;
-      readonly Func<T, TKey> _key_fn;
+      readonly Func<T, TState> _key_fn;
       readonly Func<T, bool> _predicate;
       readonly List<T> _filtered_items = new List<T>();
       readonly HashSet<string> _observed_properties_set;
@@ -26,9 +26,9 @@ namespace Collections.Sync.Collections.Impl {
 
       public FilteredObservableKeyedCollection(
          [DisallowNull]IStrongReadOnlyObservableCollection<T> source,
-         [DisallowNull]IComparer<TKey> key_comparer,
-         [DisallowNull]IEqualityComparer<TKey> key_eq_comparer,
-         [DisallowNull]Func<T, TKey> key_fn,
+         [DisallowNull]IComparer<TState> key_comparer,
+         [DisallowNull]IEqualityComparer<TState> key_eq_comparer,
+         [DisallowNull]Func<T, TState> key_fn,
          [DisallowNull]Func<T, bool> predicate,
          params string[] observed_properties) {
          //
