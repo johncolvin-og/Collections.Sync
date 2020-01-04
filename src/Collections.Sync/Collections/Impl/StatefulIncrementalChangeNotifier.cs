@@ -38,6 +38,24 @@ namespace Collections.Sync.Collections.Impl {
          }
       }
 
+      class FilterImpl<T, TKey, TState> : IStrongReadOnlyObservableCollection<T> {
+         readonly Func<T, TKey> _key_fn;
+         readonly Func<T, IObservable<TState>> _subscribe_state;
+
+         public FilterImpl(
+            Func<T, TKey> key_fn,
+            Func<T, IObservable<TState>> subscribe_state) {
+            //
+            _key_fn = key_fn ?? throw new ArgumentNullException(nameof(key_fn));
+            _subscribe_state = subscribe_state ?? throw new ArgumentNullException(nameof(subscribe_state));
+         }
+
+         class Node {
+            public Node left;
+            public int index;
+         }
+      }
+
       public static IStatefulIncrementalChangeNotifier<T, TState> ToStateful<T, TState, TKey>(
          this IIncrementalChangeNotifier<T> source,
          Func<T, TState> state_fn,
